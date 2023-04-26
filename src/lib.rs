@@ -19,7 +19,7 @@ pub fn greet() {
 
 static EPSILON: f64 = 0.0000001;
 
-fn are_equal(one: f64, another:f64) -> bool{
+fn  are_equal(one: f64, another:f64) -> bool{
     (one - another).abs() < EPSILON
 }
 
@@ -39,11 +39,17 @@ impl Vector {
     pub fn subtract(&self, other: &Vector) -> Vector {
         Vector::new(self.x - other.x, self.y - other.y)
     }
+    pub fn add(&self, other: &Vector) -> Vector {
+        Vector::new(self.x + other.x, self.y + other.y)
+    }
     pub fn scale_by(&self, number:f64) -> Vector{
         Vector::new(self.x * number, self.y * number)
     }
-    pub fn lenght(&self) -> f64 {
+    pub fn length(&self) -> f64 {
         self.x.hypot(self.y)
+    }
+    pub fn normalize(&self) -> Vector {
+        self.scale_by(1_f64 / self.length())
     }
 }
 
@@ -61,14 +67,14 @@ impl<'a> Segment<'a> {
         self.end.subtract(self.start)
     }
 
-    pub fn lenght(&self) -> f64 {
-        self.get_vector().lenght()
+    pub fn length(&self) -> f64 {
+        self.get_vector().length()
     }
 
     pub fn is_point_inside(&self, point: &Vector) -> bool {
         let first = Segment::new(self.start, point);
         let second = Segment::new(point, self.end);
-        are_equal(self.lenght(), first.lenght() + second.lenght())
+        are_equal(self.length(), first.length() + second.length())
     }
 }
 fn get_segments_from_vectors(vectors: &[Vector]) -> Vec<Segment> {
@@ -127,5 +133,31 @@ impl Game {
     }
     pub fn get_snake(&self) -> Array {
         self.snake.clone().into_iter().map(JsValue::from ).collect()
+    }
+    fn process_movement(&mut self, timespan: f64) {
+        let distance = self.speed * timespan;
+        let mut tail: Vec<Vector> = Vec::new();
+        let mut snake_distance = distance;
+        while self.snake.len() > 1 {
+            let point = self.snake.remove(0);
+            let next = &self.snake[0];
+            let segment = Segment::new(&point, next);
+            let length = segment.length();
+            if length >= snake_distance {
+                let vector = segment.get_vector().normalize().scale_by(snake_distance);
+                tail.push(point.add(&vector));
+                break;
+            }else {
+                snake_distance -= length;
+            }
+        }
+        tail.append(&mut self.snake);
+        self.snake = tail;
+        let old_head = self.snake.pop().unwrap();
+        let new_head = old_head.add(&self.direction.scale_by(distance));
+        self.snake.push(new_head);
+    }
+    pub fn process(&mut self, timespan: f64) {
+        self.process_movement(timespan)
     }
 }
